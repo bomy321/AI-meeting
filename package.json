@@ -1,0 +1,16 @@
+{
+  "name": "snake-online",
+  "version": "1.0.0",
+  "private": true,
+  "description": "最多 6 人同時上線的網路版貪吃蛇",
+  "main": "snake-server.js",
+  "scripts": {
+    "start": "node snake-server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
