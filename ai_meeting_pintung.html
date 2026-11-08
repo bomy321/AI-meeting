@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 智慧會議記錄系統</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- docx.js for generating native Word files -->
+    <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+    <!-- FileSaver.js for downloading files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&family=Noto+Serif+TC:wght@600;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Noto Sans TC', sans-serif; }
+        .font-serif-tc { font-family: 'Noto Serif TC', serif; }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .step-active { border-color: #2563eb; color: #2563eb; background-color: #eff6ff; }
+        .step-complete { border-color: #059669; color: #059669; background-color: #ecfdf5; }
+        .step-pending { border-color: #e2e8f0; color: #94a3b8; background-color: #f8fafc; }
+    </style>
+</head>
+<body class="h-full flex flex-col text-slate-800">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-slate-900 text-white shadow-md border-b border-slate-800 flex-shrink-0">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-500/30">
+                    <i class="fa-solid fa-file-signature"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg tracking-wide flex items-center gap-2">
+                        AI 智慧會議記錄系統
+                        <span class="text-xs font-normal px-2 py-0.5 bg-blue-500/20 text-blue-300 border border-blue-400/30 rounded-full">v2.5 Pro</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">音檔轉逐字稿 ✕ 官方格式會議記錄自動生成</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button onclick="resetAllData()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5 border border-slate-700">
+                    <i class="fa-solid fa-rotate-right"></i> 重置流程
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Stepper Header Bar -->
+    <div class="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <nav class="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
+                <!-- Step 1 Tab -->
+                <button id="tab-step-1" onclick="switchStep(1)" class="flex items-center p-2.5 sm:p-3 rounded-xl border text-left transition-all duration-200 step-active">
+                    <div id="badge-step-1" class="w-8 h-8 rounded-lg bg-blue-600 text-white font-bold flex items-center justify-center text-sm mr-3 flex-shrink-0 shadow-sm">
+                        1
+                    </div>
+                    <div class="truncate">
+                        <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Step 1</div>
+                        <div class="font-bold text-xs sm:text-sm truncate">API Key 設定</div>
+                    </div>
+                </button>
+
+                <!-- Step 2 Tab -->
+                <button id="tab-step-2" onclick="switchStep(2)" class="flex items-center p-2.5 sm:p-3 rounded-xl border text-left transition-all duration-200 step-pending">
+                    <div id="badge-step-2" class="w-8 h-8 rounded-lg bg-slate-200 text-slate-600 font-bold flex items-center justify-center text-sm mr-3 flex-shrink-0">
+                        2
+                    </div>
+                    <div class="truncate">
+                        <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Step 2</div>
+                        <div class="font-bold text-xs sm:text-sm truncate">音檔轉逐字稿</div>
+                    </div>
+                </button>
+
+                <!-- Step 3 Tab -->
+                <button id="tab-step-3" onclick="switchStep(3)" class="flex items-center p-2.5 sm:p-3 rounded-xl border text-left transition-all duration-200 step-pending">
+                    <div id="badge-step-3" class="w-8 h-8 rounded-lg bg-slate-200 text-slate-600 font-bold flex items-center justify-center text-sm mr-3 flex-shrink-0">
+                        3
+                    </div>
+                    <div class="truncate">
+                        <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Step 3</div>
+                        <div class="font-bold text-xs sm:text-sm truncate">生成會議記錄</div>
+                    </div>
+                </button>
+
+                <!-- Step 4 Tab -->
+                <button id="tab-step-4" onclick="switchStep(4)" class="flex items-center p-2.5 sm:p-3 rounded-xl border text-left transition-all duration-200 step-pending">
+                    <div id="badge-step-4" class="w-8 h-8 rounded-lg bg-slate-200 text-slate-600 font-bold flex items-center justify-center text-sm mr-3 flex-shrink-0">
+                        4
+                    </div>
+                    <div class="truncate">
+                        <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Step 4</div>
+                        <div class="font-bold text-xs sm:text-sm truncate">預覽與 Word 匯出</div>
+                    </div>
+                </button>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Main Content Body -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- ==================== STEP 1: API KEY ==================== -->
+        <section id="panel-step-1" class="space-y-6">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8 max-w-3xl mx-auto">
+                <div class="flex items-center space-x-3 mb-6 pb-4 border-b border-slate-100">
+                    <div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-key"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">步驟一：設定 Gemini API Key</h2>
+                        <p class="text-sm text-slate-500">本系統採用 Google Gemini 智慧語音辨識與自然語言處理模型</p>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="input-api-key" class="block text-sm font-semibold text-slate-700 mb-2">
+                            Google Gemini API Key <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <input type="password" id="input-api-key" placeholder="AIzaSy..." 
+                                class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition pr-12 text-sm font-mono">
+                            <button type="button" onclick="toggleKeyVisibility()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1">
+                                <i id="icon-key-visibility" class="fa-regular fa-eye"></i>
+                            </button>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-2 flex items-center gap-1">
+                            <i class="fa-solid fa-shield-halved text-emerald-600"></i>
+                            金鑰僅存在您的瀏覽器本機端，不會傳送至本站任何後端伺服器。
+                        </p>
+                    </div>
+
+                    <div class="flex items-center space-x-2 pt-2">
+                        <input type="checkbox" id="check-remember-key" class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
+                        <label for="check-remember-key" class="text-sm text-slate-600">在此瀏覽器記住 API Key</label>
+                    </div>
+
+                    <!-- API Status Message -->
+                    <div id="status-api-key" class="hidden p-4 rounded-xl text-sm font-medium"></div>
+
+                    <div class="pt-4 flex items-center justify-between border-t border-slate-100">
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 hover:underline">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i> 免費申請 Gemini API Key
+                        </a>
+                        <button onclick="saveAndVerifyKey()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md shadow-blue-500/20 transition flex items-center gap-2">
+                            下一步：上傳音檔 <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== STEP 2: AUDIO TRANSCRIPTION ==================== -->
+        <section id="panel-step-2" class="hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Left Column: Audio Upload & Player -->
+                <div class="lg:col-span-5 space-y-6">
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center text-lg">
+                                <i class="fa-solid fa-file-audio"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-slate-900">上傳會議錄音檔</h3>
+                                <p class="text-xs text-slate-500">支援 MP3, WAV, M4A, OGG, WEBM</p>
+                            </div>
+                        </div>
+
+                        <!-- File Drop Zone -->
+                        <div id="drop-zone" onclick="document.getElementById('audio-file-input').click()"
+                            class="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-xl p-6 text-center cursor-pointer transition bg-slate-50/50 hover:bg-blue-50/30">
+                            <input type="file" id="audio-file-input" accept="audio/*" class="hidden" onchange="handleFileSelect(event)">
+                            <div class="w-14 h-14 bg-white rounded-full flex items-center justify-center text-blue-600 text-2xl mx-auto shadow-sm border border-slate-100 mb-3">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                            </div>
+                            <p class="font-semibold text-sm text-slate-700">點擊選擇檔案 或 將音檔拖曳至此</p>
+                            <p class="text-xs text-slate-400 mt-1">建議單一檔案大小小於 20MB 以保持最佳處理速度</p>
+                        </div>
+
+                        <!-- Selected Audio Player & File Meta -->
+                        <div id="audio-meta-card" class="hidden mt-4 p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-3 truncate">
+                                    <i class="fa-solid fa-music text-blue-600 text-lg"></i>
+                                    <div class="truncate">
+                                        <div id="file-name" class="text-xs font-bold text-slate-800 truncate">meeting.mp3</div>
+                                        <div id="file-size" class="text-[10px] text-slate-500">0 MB</div>
+                                    </div>
+                                </div>
+                                <button onclick="clearAudioFile()" class="text-slate-400 hover:text-red-500 text-xs p-1">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
+                            <audio id="audio-player" controls class="w-full h-8 rounded-lg"></audio>
+                        </div>
+
+                        <!-- Transcribe Trigger Button -->
+                        <button id="btn-transcribe" onclick="startTranscription()" disabled 
+                            class="w-full mt-4 py-3 bg-slate-300 text-slate-500 font-semibold rounded-xl transition flex items-center justify-center gap-2 cursor-not-allowed">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> 開始 AI 轉譯逐字稿
+                        </button>
+                    </div>
+
+                    <!-- Guidelines -->
+                    <div class="bg-blue-50/60 rounded-2xl p-5 border border-blue-100 space-y-2">
+                        <h4 class="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-lightbulb text-blue-600"></i> 語音轉譯小技巧
+                        </h4>
+                        <ul class="text-xs text-blue-800 space-y-1.5 list-disc list-inside">
+                            <li>清晰、背景噪音少的音檔能獲得更準確的逐字稿。</li>
+                            <li>轉譯完成後，您可在右側編輯區直接修改或補充內容。</li>
+                            <li>無音檔時，您也可以直接在右側粘貼現有的文字記錄。</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Right Column: Transcript Result -->
+                <div class="lg:col-span-7 flex flex-col space-y-4">
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex-1 flex flex-col min-h-[500px]">
+                        <div class="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
+                            <div class="flex items-center space-x-2">
+                                <i class="fa-solid fa-align-left text-slate-700"></i>
+                                <h3 class="font-bold text-slate-900">逐字稿內容</h3>
+                                <span id="transcript-count" class="text-xs text-slate-400 font-normal">0 字</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="copyTranscript()" class="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 flex items-center gap-1">
+                                    <i class="fa-regular fa-copy"></i> 複製
+                                </button>
+                                <button onclick="clearTranscript()" class="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-red-50 hover:text-red-600 text-slate-600 flex items-center gap-1">
+                                    <i class="fa-solid fa-xmark"></i> 清除
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Progress Loading Overlay -->
+                        <div id="transcribe-loading" class="hidden flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
+                            <div class="relative w-16 h-16">
+                                <div class="w-16 h-16 rounded-full border-4 border-blue-200 border-t-blue-600 animate-spin"></div>
+                                <div class="absolute inset-0 flex items-center justify-center text-blue-600 text-xl">
+                                    <i class="fa-solid fa-microphone-lines"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <p class="font-bold text-slate-800">Gemini AI 正在辨識會議音檔...</p>
+                                <p class="text-xs text-slate-500 mt-1">這可能需要數十秒時間，請保持網頁開啟</p>
+                            </div>
+                        </div>
+
+                        <!-- Transcript Editable Textarea -->
+                        <textarea id="transcript-text" placeholder="音檔轉譯結果將顯示於此... 或您可以直接在此粘貼已有的會議錄音文字稿。"
+                            oninput="updateTranscriptCount()"
+                            class="flex-1 w-full p-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm leading-relaxed text-slate-800 resize-none font-sans"></textarea>
+
+                        <!-- Next Navigation -->
+                        <div class="pt-4 mt-3 border-t border-slate-100 flex justify-end">
+                            <button onclick="goToStep3()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md shadow-blue-500/20 transition flex items-center gap-2">
+                                下一步：輸入會議資訊與生成記錄 <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== STEP 3: MEETING TEMPLATE & AI GENERATION ==================== -->
+        <section id="panel-step-3" class="hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Left Form: Metadata & Config -->
+                <div class="lg:col-span-5 space-y-6">
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
+                        <div class="flex items-center space-x-3 mb-2 pb-3 border-b border-slate-100">
+                            <div class="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center text-lg">
+                                <i class="fa-solid fa-building-columns"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-slate-900">會議基本資訊</h3>
+                                <p class="text-xs text-slate-500">將帶入標準公文格式會議記錄欄位</p>
+                            </div>
+                        </div>
+
+                        <!-- Auto Extract Button -->
+                        <button onclick="autoExtractMetaFromTranscript()" class="w-full py-2 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-lg border border-emerald-200 transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-bolt text-emerald-600"></i> AI 自動從逐字稿擷取時間/地點/主席
+                        </button>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">機關名稱 <span class="text-red-500">*</span></label>
+                            <input type="text" id="meta-org" value="國家發展委員會" placeholder="例如：國家發展委員會" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">會議名稱 <span class="text-red-500">*</span></label>
+                            <input type="text" id="meta-title" value="業務協調與推進會議" placeholder="例如：第102次業務研討會議" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">壹、時間</label>
+                            <input type="text" id="meta-time" placeholder="例如：115年8月25日 上午10時00分" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">貳、地點</label>
+                            <input type="text" id="meta-location" placeholder="例如：本會第一會議室" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">參、主席</label>
+                            <input type="text" id="meta-chair" placeholder="例如：張主任委員" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">肆、出(列)席者</label>
+                            <input type="text" id="meta-attendees" value="如簽到表" placeholder="如簽到表" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">柒、散會時間</label>
+                            <input type="text" id="meta-adjourn" placeholder="例如：上午11時30分" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <!-- Template Badge Spec -->
+                        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">會議記錄對照範本條項：</span>
+                            <div class="text-xs text-slate-700 font-mono space-y-0.5">
+                                <div>壹、時間</div>
+                                <div>貳、地點</div>
+                                <div>參、主席</div>
+                                <div>肆、出(列)席者</div>
+                                <div>伍、主席致詞</div>
+                                <div>陸、主席指示及決議事項</div>
+                                <div>柒、散會</div>
+                            </div>
+                        </div>
+
+                        <button onclick="generateMeetingMinutes()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md shadow-emerald-600/20 transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-sparkles"></i> 依據範本生成正式會議記錄
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Right Area: Generated Minutes Preview / Edit -->
+                <div class="lg:col-span-7 flex flex-col space-y-4">
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex-1 flex flex-col">
+                        <div class="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
+                            <div class="flex items-center space-x-2">
+                                <i class="fa-solid fa-file-contract text-emerald-600"></i>
+                                <h3 class="font-bold text-slate-900">會議記錄生成結果</h3>
+                            </div>
+                            <span class="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-medium">可手動調整與編輯</span>
+                        </div>
+
+                        <!-- Generating Spinner Overlay -->
+                        <div id="minutes-loading" class="hidden flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
+                            <div class="w-12 h-12 rounded-full border-4 border-emerald-200 border-t-emerald-600 animate-spin"></div>
+                            <div>
+                                <p class="font-bold text-slate-800">Gemini AI 正分析逐字稿並套用機關範本格式...</p>
+                                <p class="text-xs text-slate-500 mt-1">整理重點指示與決議事項中</p>
+                            </div>
+                        </div>
+
+                        <div id="minutes-editor-wrapper" class="flex-1 flex flex-col space-y-3">
+                            <textarea id="minutes-result-text" placeholder="點擊左側「依據範本生成正式會議記錄」按鈕，AI 將自動提煉並帶入標準格式。"
+                                class="flex-1 w-full min-h-[420px] p-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 text-sm leading-relaxed text-slate-800 font-mono resize-none"></textarea>
+                        </div>
+
+                        <div class="pt-4 mt-3 border-t border-slate-100 flex justify-end">
+                            <button onclick="goToStep4()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md shadow-blue-500/20 transition flex items-center gap-2">
+                                下一步：排版預覽與下載 Word 檔 <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== STEP 4: PREVIEW & WORD EXPORT ==================== -->
+        <section id="panel-step-4" class="hidden space-y-6">
+            <div class="max-w-4xl mx-auto space-y-6">
+                <!-- Action Toolbar -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-lg">
+                            <i class="fa-solid fa-file-word"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-slate-900">會議記錄已就緒</h3>
+                            <p class="text-xs text-slate-500">符合台灣公務機關標準格式文件</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <button onclick="copyFormattedMinutes()" class="px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold transition flex items-center gap-1.5">
+                            <i class="fa-regular fa-copy"></i> 複製內文
+                        </button>
+                        <button onclick="downloadWordDoc()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center gap-2">
+                            <i class="fa-solid fa-file-word text-lg"></i> 下載 Word 檔 (.docx)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Official Paper Document Preview Card -->
+                <div class="bg-white rounded-xl shadow-xl border border-slate-200 p-8 sm:p-14 min-h-[600px] font-serif-tc text-slate-900 leading-relaxed relative">
+                    <!-- Paper Top Decorative Header -->
+                    <div class="text-center space-y-2 mb-10 pb-6 border-b-2 border-slate-900">
+                        <h2 id="doc-preview-org" class="text-2xl sm:text-3xl font-black tracking-widest text-slate-900">
+                            國家發展委員會
+                        </h2>
+                        <h3 id="doc-preview-title" class="text-xl sm:text-2xl font-bold tracking-wider text-slate-800">
+                            業務會議紀錄
+                        </h3>
+                    </div>
+
+                    <!-- Paper Body Sections -->
+                    <div id="doc-preview-body" class="space-y-6 text-base sm:text-lg">
+                        <!-- Rendered by JS -->
+                    </div>
+
+                    <div class="mt-16 pt-6 border-t border-slate-200 text-xs font-sans text-slate-400 text-center">
+                        此文件由 AI 智慧會議記錄系統自動排版生成
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // Global Application State
+        const state = {
+            currentStep: 1,
+            apiKey: '',
+            audioFile: null,
+            audioBase64: '',
+            audioMimeType: '',
+            transcript: '',
+            minutesText: ''
+        };
+
+        // Window Onload Initialization
+        window.addEventListener('DOMContentLoaded', () => {
+            // Check for saved API key
+            const savedKey = localStorage.getItem('gemini_api_key');
+            if (savedKey) {
+                document.getElementById('input-api-key').value = savedKey;
+                document.getElementById('check-remember-key').checked = true;
+                state.apiKey = savedKey;
+            }
+            
+            // Setup Drag and Drop events
+            setupDragAndDrop();
+            
+            // Initialize count
+            updateTranscriptCount();
+        });
+
+        // -------------------------------------------------------------
+        // Step Navigation Logic
+        // -------------------------------------------------------------
+        function switchStep(stepNumber) {
+            // Don't jump to step 2/3/4 if API key is not entered (unless demoing UI)
+            if (stepNumber > 1 && !state.apiKey) {
+                const keyInput = document.getElementById('input-api-key').value.trim();
+                if (keyInput) {
+                    state.apiKey = keyInput;
+                } else {
+                    showStatus('status-api-key', '請先輸入並設定您的 Gemini API Key！', 'error');
+                    return;
+                }
+            }
+
+            state.currentStep = stepNumber;
+
+            // Update Tab UI styles
+            for (let i = 1; i <= 4; i++) {
+                const tab = document.getElementById(`tab-step-${i}`);
+                const badge = document.getElementById(`badge-step-${i}`);
+                const panel = document.getElementById(`panel-step-${i}`);
+
+                if (i === stepNumber) {
+                    tab.className = 'flex items-center p-2.5 sm:p-3 rounded-xl border text-left transition-all duration-200 step-active shadow-sm';
+                    badge.className = 'w-8 h-8 rounded-lg bg-blue-600 text-white font-bold flex items-center justify-center text-sm mr-3 flex-shrink-0 shadow-sm';
+                    panel.classList.remove('hidden');
+                } else if (i < stepNumber) {
+                    tab.className = 'flex items-center p-2.5 sm:p-3 rounded-xl border text-left transition-all duration-200 step-complete';
+                    badge.className = 'w-8 h-8 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center text-sm mr-3 flex-shrink-0';
+                    panel.classList.add('hidden');
+                } else {
+                    tab.className = 'flex items-center p-2.5 sm:p-3 rounded-xl border text-left transition-all duration-200 step-pending';
+                    badge.className = 'w-8 h-8 rounded-lg bg-slate-200 text-slate-600 font-bold flex items-center justify-center text-sm mr-3 flex-shrink-0';
+                    panel.classList.add('hidden');
+                }
+            }
+
+            // If switching to step 4, refresh document preview
+            if (stepNumber === 4) {
+                renderDocPreview();
+            }
+        }
+
+        // -------------------------------------------------------------
+        // Step 1: API Key Functions
+        // -------------------------------------------------------------
+        function toggleKeyVisibility() {
+            const input = document.getElementById('input-api-key');
+            const icon = document.getElementById('icon-key-visibility');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fa-regular fa-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'fa-regular fa-eye';
+            }
+        }
+
+        function saveAndVerifyKey() {
+            const key = document.getElementById('input-api-key').value.trim();
+            if (!key) {
+                showStatus('status-api-key', '請輸入有效的 API Key。', 'error');
+                return;
+            }
+
+            state.apiKey = key;
+
+            if (document.getElementById('check-remember-key').checked) {
+                localStorage.setItem('gemini_api_key', key);
+            } else {
+                localStorage.removeItem('gemini_api_key');
+            }
+
+            showStatus('status-api-key', 'API Key 已成功驗證與儲存！正在切換至第二步驟...', 'success');
+            setTimeout(() => {
+                switchStep(2);
+            }, 800);
+        }
+
+        function showStatus(elementId, msg, type) {
+            const el = document.getElementById(elementId);
+            el.classList.remove('hidden', 'bg-red-50', 'text-red-700', 'border-red-200', 'bg-emerald-50', 'text-emerald-700', 'border-emerald-200');
+            el.classList.add('border');
+
+            if (type === 'error') {
+                el.classList.add('bg-red-50', 'text-red-700', 'border-red-200');
+            } else {
+                el.classList.add('bg-emerald-50', 'text-emerald-700', 'border-emerald-200');
+            }
+            el.textContent = msg;
+        }
+
+        // -------------------------------------------------------------
+        // Step 2: Audio File & Gemini Transcription
+        // -------------------------------------------------------------
+        function setupDragAndDrop() {
+            const dropZone = document.getElementById('drop-zone');
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.add('border-blue-500', 'bg-blue-50/50'), false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.remove('border-blue-500', 'bg-blue-50/50'), false);
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length > 0) {
+                    processAudioFile(files[0]);
+                }
+            });
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                processAudioFile(files[0]);
+            }
+        }
+
+        function processAudioFile(file) {
+            if (!file.type.startsWith('audio/') && !file.name.match(/\.(mp3|wav|m4a|ogg|webm)$/i)) {
+                alert('請上傳有效的音訊檔案 (MP3, WAV, M4A, OGG, WEBM)');
+                return;
+            }
+
+            state.audioFile = file;
+            state.audioMimeType = file.type || 'audio/mp3';
+
+            // Display Meta & Audio Player
+            document.getElementById('file-name').textContent = file.name;
+            document.getElementById('file-size').textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+            
+            const player = document.getElementById('audio-player');
+            player.src = URL.createObjectURL(file);
+
+            document.getElementById('audio-meta-card').classList.remove('hidden');
+
+            // Enable Transcribe Button
+            const btn = document.getElementById('btn-transcribe');
+            btn.disabled = false;
+            btn.className = 'w-full mt-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md shadow-blue-500/20 transition flex items-center justify-center gap-2 cursor-pointer';
+
+            // Read File as Base64 for Gemini API
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64Data = e.target.result.split(',')[1];
+                state.audioBase64 = base64Data;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearAudioFile() {
+            state.audioFile = null;
+            state.audioBase64 = '';
+            document.getElementById('audio-file-input').value = '';
+            document.getElementById('audio-player').src = '';
+            document.getElementById('audio-meta-card').classList.add('hidden');
+
+            const btn = document.getElementById('btn-transcribe');
+            btn.disabled = true;
+            btn.className = 'w-full mt-4 py-3 bg-slate-300 text-slate-500 font-semibold rounded-xl transition flex items-center justify-center gap-2 cursor-not-allowed';
+        }
+
+        async function startTranscription() {
+            if (!state.audioBase64) {
+                alert('請先選擇錄音檔！');
+                return;
+            }
+            if (!state.apiKey) {
+                alert('請先於步驟一設定 Gemini API Key');
+                switchStep(1);
+                return;
+            }
+
+            const loading = document.getElementById('transcribe-loading');
+            const textarea = document.getElementById('transcript-text');
+            
+            loading.classList.remove('hidden');
+            textarea.classList.add('hidden');
+
+            try {
+                // Call Gemini 3 Flash API with Audio Base64
+                const prompt = "請將這段會議錄音完整轉寫為中文逐字稿。請儘量保持精準、條理分明，若聽出發言者變換可適當換行與標示發言重點。";
+                
+                const response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${state.apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [
+                                { text: prompt },
+                                {
+                                    inlineData: {
+                                        mimeType: state.audioMimeType,
+                                        data: state.audioBase64
+                                    }
+                                }
+                            ]
+                        }]
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error.message || 'API 發生錯誤');
+                }
+
+                const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || '無法解析音檔內容，請檢查音檔是否正常。';
+                
+                textarea.value = resultText;
+                state.transcript = resultText;
+                updateTranscriptCount();
+
+            } catch (err) {
+                alert('轉譯過程發生錯誤：' + err.message);
+                console.error(err);
+            } finally {
+                loading.classList.add('hidden');
+                textarea.classList.remove('hidden');
+            }
+        }
+
+        function updateTranscriptCount() {
+            const text = document.getElementById('transcript-text').value;
+            state.transcript = text;
+            document.getElementById('transcript-count').textContent = `${text.length} 字`;
+        }
+
+        function copyTranscript() {
+            const text = document.getElementById('transcript-text').value;
+            if (!text) return;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('逐字稿已複製到剪貼簿');
+            });
+        }
+
+        function clearTranscript() {
+            if (confirm('確定要清除逐字稿內容嗎？')) {
+                document.getElementById('transcript-text').value = '';
+                updateTranscriptCount();
+            }
+        }
+
+        function goToStep3() {
+            state.transcript = document.getElementById('transcript-text').value.trim();
+            if (!state.transcript) {
+                if (!confirm('逐字稿目前為空，確定要繼續進入步驟三嗎？')) {
+                    return;
+                }
+            }
+            switchStep(3);
+        }
+
+        // Helper function for API retries with backoff
+        async function fetchWithRetry(url, options, retries = 3, backoff = 1000) {
+            try {
+                const res = await fetch(url, options);
+                if (!res.ok) {
+                    const errorText = await res.text();
+                    throw new Error(`HTTP ${res.status}: ${errorText}`);
+                }
+                return res;
+            } catch (err) {
+                if (retries > 0) {
+                    await new Promise(r => setTimeout(r, backoff));
+                    return fetchWithRetry(url, options, retries - 1, backoff * 2);
+                }
+                throw err;
+            }
+        }
+
+        // -------------------------------------------------------------
+        // Step 3: Template & AI Meeting Minutes Generation
+        // -------------------------------------------------------------
+        async function autoExtractMetaFromTranscript() {
+            const transcript = document.getElementById('transcript-text').value.trim();
+            if (!transcript) {
+                alert('請先在步驟二提供逐字稿內容！');
+                return;
+            }
+            if (!state.apiKey) {
+                alert('請先設定 API Key');
+                return;
+            }
+
+            const extractPrompt = `請從以下會議逐字稿中提取會議資訊，並以 JSON 格式回傳，欄位包含：
+1. "time": 會議時間 (如：115年8月25日 上午10點00分)
+2. "location": 會議地點
+3. "chair": 主席姓名或職稱
+4. "adjourn": 散會時間
+
+若文字稿中未提及某欄位，請回傳空字串 ""。
+逐字稿內容：
+${transcript.slice(0, 3000)}`;
+
+            try {
+                const response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${state.apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: extractPrompt }] }],
+                        generationConfig: {
+                            responseMimeType: "application/json",
+                            responseSchema: {
+                                type: "OBJECT",
+                                properties: {
+                                    time: { type: "STRING" },
+                                    location: { type: "STRING" },
+                                    chair: { type: "STRING" },
+                                    adjourn: { type: "STRING" }
+                                }
+                            }
+                        }
+                    })
+                });
+
+                const resData = await response.json();
+                const jsonStr = resData.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (jsonStr) {
+                    const parsed = JSON.parse(jsonStr);
+                    if (parsed.time) document.getElementById('meta-time').value = parsed.time;
+                    if (parsed.location) document.getElementById('meta-location').value = parsed.location;
+                    if (parsed.chair) document.getElementById('meta-chair').value = parsed.chair;
+                    if (parsed.adjourn) document.getElementById('meta-adjourn').value = parsed.adjourn;
+                    alert('已完成 AI 欄位智慧擷取！');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('擷取過程發生錯誤：' + err.message);
+            }
+        }
+
+        async function generateMeetingMinutes() {
+            const transcript = document.getElementById('transcript-text').value.trim();
+            if (!transcript) {
+                alert('請先提供會議逐字稿！');
+                return;
+            }
+            if (!state.apiKey) {
+                alert('請先輸入 API Key');
+                return;
+            }
+
+            const org = document.getElementById('meta-org').value.trim() || '國家發展委員會';
+            const title = document.getElementById('meta-title').value.trim() || '會議紀錄';
+            const time = document.getElementById('meta-time').value.trim() || '（填寫時間）';
+            const location = document.getElementById('meta-location').value.trim() || '（填寫地點）';
+            const chair = document.getElementById('meta-chair').value.trim() || '（填寫主席）';
+            const attendees = document.getElementById('meta-attendees').value.trim() || '如簽到表';
+            const adjourn = document.getElementById('meta-adjourn').value.trim() || '（略）';
+
+            const systemInstruction = `你是一位專業的機關公文與會議記錄秘書。請根據使用者提供的會議逐字稿， strict 依據以下公務機關標準會議紀錄範本格式生成完整的會議紀錄。
+
+會議紀錄規範模板如下：
+壹、時間：${time}
+貳、地點：${location}
+參、主席：${chair}
+肆、出(列)席者：${attendees}
+伍、主席致詞：（略）
+陸、主席指示及決議事項：
+一、[第一項指示或決議重點，說明要具體、有條理]
+    (一)[次要細項說明]
+    (二)[次要細項說明]
+二、[第二項指示或決議重點]
+...
+柒、散會：${adjourn}
+
+請注意：
+1. 請勿在輸出內文開頭重複輸出【機關名稱】或【會議名稱】等標題行。
+2. 「陸、主席指示及決議事項」必須從逐字稿中精確提煉，主項目使用（一、二、三...），次要細項使用 (一)、(二)...，文字簡練、語氣專業符合公文規格。
+3. 保持標題格式（壹、貳、參...）完全一致。`;
+
+            const loading = document.getElementById('minutes-loading');
+            const wrapper = document.getElementById('minutes-editor-wrapper');
+            loading.classList.remove('hidden');
+            wrapper.classList.add('hidden');
+
+            try {
+                const response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${state.apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: `以下為會議逐字稿內容，請幫我整理成標準會議記錄：\n\n${transcript}` }] }],
+                        systemInstruction: { parts: [{ text: systemInstruction }] }
+                    })
+                });
+
+                const data = await response.json();
+                const genText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                
+                document.getElementById('minutes-result-text').value = genText;
+                state.minutesText = genText;
+
+            } catch (err) {
+                alert('生成會議記錄失敗：' + err.message);
+                console.error(err);
+            } finally {
+                loading.classList.add('hidden');
+                wrapper.classList.remove('hidden');
+            }
+        }
+
+        function goToStep4() {
+            const resultText = document.getElementById('minutes-result-text').value.trim();
+            if (!resultText) {
+                alert('請先點擊「依據範本生成正式會議記錄」！');
+                return;
+            }
+            state.minutesText = resultText;
+            switchStep(4);
+        }
+
+        // -------------------------------------------------------------
+        // Step 4: Preview & Word (.docx) Generation
+        // -------------------------------------------------------------
+        function renderDocPreview() {
+            const org = document.getElementById('meta-org').value.trim() || '國家發展委員會';
+            const title = document.getElementById('meta-title').value.trim() || '會議紀錄';
+            const rawText = document.getElementById('minutes-result-text').value.trim();
+
+            document.getElementById('doc-preview-org').textContent = org;
+            document.getElementById('doc-preview-title').textContent = title + (title.endsWith('紀錄') ? '' : '紀錄');
+
+            const container = document.getElementById('doc-preview-body');
+            container.innerHTML = '';
+
+            // Split rawText into section lines or blocks
+            const lines = rawText.split('\n');
+
+            lines.forEach(line => {
+                const trimmed = line.trim();
+                if (!trimmed) return;
+
+                // 移除重複的機關名稱與會議名稱 (如: 【屏東縣政府】、【業務協調與推進會議】)
+                const cleanTrimmed = trimmed.replace(/[【】\s]/g, '');
+                const cleanOrg = org.replace(/\s/g, '');
+                const cleanTitle = title.replace(/\s/g, '');
+                if (cleanTrimmed === cleanOrg || 
+                    cleanTrimmed === cleanTitle || 
+                    cleanTrimmed === cleanTitle + '紀錄' || 
+                    cleanTrimmed === cleanTitle + '會議紀錄' ||
+                    cleanTrimmed === cleanOrg + cleanTitle ||
+                    cleanTrimmed === cleanOrg + cleanTitle + '紀錄' ||
+                    cleanTrimmed === cleanOrg + cleanTitle + '會議紀錄' ||
+                    (trimmed.startsWith('【') && trimmed.endsWith('】'))) {
+                    return;
+                }
+
+                // Major Heading (壹、 貳、 參...)
+                if (trimmed.match(/^[壹貳參肆伍陸柒捌玖拾]、/)) {
+                    const hBlock = document.createElement('div');
+                    hBlock.className = 'mt-6 mb-2 font-bold text-slate-900 border-b border-slate-100 pb-1 text-lg';
+                    hBlock.textContent = trimmed;
+                    container.appendChild(hBlock);
+                } 
+                // Sub Items (Bracketed Chinese or Numeric): (一)、（一）、(1)、（1）... 縮排 4 字，第二行縮 2 字 (hanging -2em)
+                else if (trimmed.match(/^[\(（\[【][一二三四五六七八九十0-9]+[\)）\]】]/) || trimmed.match(/^[0-9]+[\)]/)) {
+                    const item = document.createElement('div');
+                    item.className = 'my-2 text-slate-800 text-base leading-relaxed';
+                    item.style.paddingLeft = '4em';
+                    item.style.textIndent = '-2em';
+                    item.textContent = trimmed;
+                    container.appendChild(item);
+                }
+                // Major Chinese Items: 一、 二、 三... 第一行頂格，第二行縮 2 字 (padding 2em, textIndent -2em)
+                else if (trimmed.match(/^[一二三四五六七八九十]+[、\.]/)) {
+                    const item = document.createElement('div');
+                    item.className = 'my-2 text-slate-800 text-base leading-relaxed';
+                    item.style.paddingLeft = '2em';
+                    item.style.textIndent = '-2em';
+                    item.textContent = trimmed;
+                    container.appendChild(item);
+                } 
+                // Arabic Numeric Items: 1. 2. 3. / 1、 2、 3、 / 1.1 1.2... 縮排 4 字，第二行縮 2 字 (padding 4em, textIndent -2em)
+                else if (trimmed.match(/^[0-9]+[、\.\s]/) || trimmed.match(/^[0-9]+\.[0-9]+/)) {
+                    const item = document.createElement('div');
+                    item.className = 'my-2 text-slate-800 text-base leading-relaxed';
+                    item.style.paddingLeft = '4em';
+                    item.style.textIndent = '-2em';
+                    item.textContent = trimmed;
+                    container.appendChild(item);
+                }
+                // Regular line
+                else {
+                    const p = document.createElement('p');
+                    p.className = 'my-1 text-slate-700 leading-relaxed';
+                    p.style.paddingLeft = '2em';
+                    p.textContent = trimmed;
+                    container.appendChild(p);
+                }
+            });
+        }
+
+        function copyFormattedMinutes() {
+            const rawText = document.getElementById('minutes-result-text').value.trim();
+            navigator.clipboard.writeText(rawText).then(() => {
+                alert('會議記錄全文已複製到剪貼簿！');
+            });
+        }
+
+        // -------------------------------------------------------------
+        // Native Word (.docx) File Export Logic using docx.js
+        // -------------------------------------------------------------
+        function downloadWordDoc() {
+            const org = document.getElementById('meta-org').value.trim() || '國家發展委員會';
+            const title = document.getElementById('meta-title').value.trim() || '會議紀錄';
+            const rawText = document.getElementById('minutes-result-text').value.trim();
+
+            if (!window.docx) {
+                alert('Docx 模組尚未載入完成，請稍後再試。');
+                return;
+            }
+
+            const { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel, BorderStyle } = window.docx;
+
+            const docChildren = [];
+
+            // 1. Header Org Name
+            docChildren.push(
+                new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    spacing: { before: 200, after: 100 },
+                    children: [
+                        new TextRun({
+                            text: org,
+                            bold: true,
+                            size: 36, // 18pt
+                            font: "標楷體",
+                        }),
+                    ],
+                })
+            );
+
+            // 2. Title
+            docChildren.push(
+                new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 400 },
+                    children: [
+                        new TextRun({
+                            text: title + (title.endsWith('紀錄') ? '' : '紀錄'),
+                            bold: true,
+                            size: 32, // 16pt
+                            font: "標楷體",
+                        }),
+                    ],
+                })
+            );
+
+            // 3. Process Content Lines
+            const lines = rawText.split('\n');
+            lines.forEach(line => {
+                const trimmed = line.trim();
+                if (!trimmed) return;
+
+                // 移除 AI 自動生成的開頭機關名稱與會議名稱 (避免 Word 檔前幾行重複輸出)
+                const cleanTrimmed = trimmed.replace(/[【】\s]/g, '');
+                const cleanOrg = org.replace(/\s/g, '');
+                const cleanTitle = title.replace(/\s/g, '');
+                if (cleanTrimmed === cleanOrg || 
+                    cleanTrimmed === cleanTitle || 
+                    cleanTrimmed === cleanTitle + '紀錄' || 
+                    cleanTrimmed === cleanTitle + '會議紀錄' ||
+                    cleanTrimmed === cleanOrg + cleanTitle ||
+                    cleanTrimmed === cleanOrg + cleanTitle + '紀錄' ||
+                    cleanTrimmed === cleanOrg + cleanTitle + '會議紀錄' ||
+                    (trimmed.startsWith('【') && trimmed.endsWith('】'))) {
+                    return;
+                }
+
+                // Major Heading (壹、 貳、...)
+                if (trimmed.match(/^[壹貳參肆伍陸柒捌玖拾]、/)) {
+                    docChildren.push(
+                        new Paragraph({
+                            spacing: { before: 240, after: 120 },
+                            children: [
+                                new TextRun({
+                                    text: trimmed,
+                                    bold: true,
+                                    size: 28, // 14pt
+                                    font: "標楷體",
+                                }),
+                            ],
+                        })
+                    );
+                } 
+                // Sub-items (Bracketed Chinese or Numeric): (一)、（一）、(1)、（1）... 縮排 4 字 (1040 twips), hanging 2 字 (520 twips)
+                else if (trimmed.match(/^[\(（\[【][一二三四五六七八九十0-9]+[\)）\]】]/) || trimmed.match(/^[0-9]+[\)]/)) {
+                    docChildren.push(
+                        new Paragraph({
+                            indent: { left: 1040, hanging: 520 }, 
+                            spacing: { before: 100, after: 100 },
+                            children: [
+                                new TextRun({
+                                    text: trimmed,
+                                    size: 26, // 13pt
+                                    font: "標楷體",
+                                }),
+                            ],
+                        })
+                    );
+                }
+                // Chinese Major Items (一、 二、...)，首行 0 縮排，第二行縮排 2 字 (520 twips)
+                else if (trimmed.match(/^[一二三四五六七八九十]+[、\.]/)) {
+                    docChildren.push(
+                        new Paragraph({
+                            indent: { left: 520, hanging: 520 }, 
+                            spacing: { before: 100, after: 100 },
+                            children: [
+                                new TextRun({
+                                    text: trimmed,
+                                    size: 26, // 13pt
+                                    font: "標楷體",
+                                }),
+                            ],
+                        })
+                    );
+                } 
+                // Arabic Numeric Items (1. 2. 3. / 1、 2、 3、 / 1.1...): 縮排 4 字 (1040 twips), hanging 2 字 (520 twips)
+                else if (trimmed.match(/^[0-9]+[、\.\s]/) || trimmed.match(/^[0-9]+\.[0-9]+/)) {
+                    docChildren.push(
+                        new Paragraph({
+                            indent: { left: 1040, hanging: 520 }, 
+                            spacing: { before: 100, after: 100 },
+                            children: [
+                                new TextRun({
+                                    text: trimmed,
+                                    size: 26, // 13pt
+                                    font: "標楷體",
+                                }),
+                            ],
+                        })
+                    );
+                }
+                // Sub-items or regular lines
+                else {
+                    docChildren.push(
+                        new Paragraph({
+                            indent: { left: 520 },
+                            spacing: { before: 80, after: 80 },
+                            children: [
+                                new TextRun({
+                                    text: trimmed,
+                                    size: 26, // 13pt
+                                    font: "標楷體",
+                                }),
+                            ],
+                        })
+                    );
+                }
+            });
+
+            // Build Document Object
+            const doc = new Document({
+                sections: [
+                    {
+                        properties: {
+                            page: {
+                                margin: {
+                                    top: 1440, // 1 inch = 1440 twips
+                                    bottom: 1440,
+                                    left: 1440,
+                                    right: 1440,
+                                },
+                            },
+                        },
+                        children: docChildren,
+                    },
+                ],
+            });
+
+            // Pack & Save
+            Packer.toBlob(doc).then((blob) => {
+                saveAs(blob, `${org}_${title}.docx`);
+            }).catch(err => {
+                console.error("生成 Word 檔發生錯誤:", err);
+                alert("匯出失敗：" + err.message);
+            });
+        }
+
+        function resetAllData() {
+            if (confirm('確定要清空目前所有進度並重置流程嗎？')) {
+                state.audioFile = null;
+                state.audioBase64 = '';
+                state.transcript = '';
+                state.minutesText = '';
+                
+                document.getElementById('transcript-text').value = '';
+                document.getElementById('minutes-result-text').value = '';
+                clearAudioFile();
+                
+                switchStep(1);
+            }
+        }
+    </script>
+</body>
+</html>
