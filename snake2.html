@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>貪吃蛇連線版</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            overscroll-behavior: none;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            color: #e2e8f0;
+        }
+
+        /* 整個遊戲固定在視窗內：場地占滿剩餘空間，側欄固定寬度，不會產生捲軸。 */
+        .app {
+            height: 100vh;
+            height: 100dvh;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) clamp(170px, 20vw, 260px);
+            grid-template-rows: minmax(0, 1fr);
+            gap: 0.75rem;
+            padding: 0.75rem;
+        }
+
+        .stage {
+            position: relative;
+            min-width: 0;
+            min-height: 0;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        canvas {
+            display: block;
+            border-radius: 10px;
+            background: #0a0f1a;
+            box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.3);
+        }
+
+        .overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            padding: 0.5rem;
+            text-align: center;
+            border-radius: 10px;
+            background: rgba(10, 15, 26, 0.8);
+            backdrop-filter: blur(3px);
+            transition: opacity 0.2s;
+        }
+
+        .overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .overlay h2 { font-size: 1.5rem; }
+
+        .overlay p {
+            color: #94a3b8;
+            font-size: 0.95rem;
+            white-space: pre-line;
+        }
+
+        .name-input {
+            width: min(240px, 100%);
+            padding: 0.55rem 0.8rem;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.08);
+            color: #e2e8f0;
+            font: inherit;
+            text-align: center;
+        }
+
+        .name-input:focus {
+            outline: 2px solid #4ade80;
+            outline-offset: 1px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #4ade80, #22d3ee);
+            color: #0f172a;
+            border: none;
+            border-radius: 10px;
+            padding: 0.6rem 2rem;
+            font-size: 1rem;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+        }
+
+        .btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        [hidden] { display: none !important; }
+
+        .panel {
+            min-width: 0;
+            min-height: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        h1 {
+            font-size: clamp(1.1rem, 1.9vw, 1.6rem);
+            line-height: 1.25;
+            background: linear-gradient(90deg, #4ade80, #22d3ee);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .online {
+            color: #94a3b8;
+            font-size: 0.85rem;
+        }
+
+        .seats {
+            list-style: none;
+            display: grid;
+            gap: 0.3rem;
+        }
+
+        .seat {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            min-width: 0;
+            padding: 0.3rem 0.5rem;
+            font-size: 0.85rem;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        .seat.me { border-color: rgba(255, 255, 255, 0.55); }
+        .seat.empty { opacity: 0.4; }
+        .seat.dead .seat-name { text-decoration: line-through; }
+
+        .swatch {
+            flex: none;
+            width: 0.75rem;
+            height: 0.75rem;
+            border-radius: 3px;
+        }
+
+        .seat-name {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        .seat-score { font-weight: 700; }
+
+        .record {
+            padding: 0.4rem 0.6rem;
+            font-size: 0.85rem;
+            color: #94a3b8;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .record strong { color: #4ade80; }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: #e2e8f0;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            padding: 0.35rem 0.8rem;
+            font-size: 0.85rem;
+            font-family: inherit;
+            cursor: pointer;
+        }
+
+        .btn-secondary:hover { background: rgba(255, 255, 255, 0.14); }
+
+        .hint {
+            font-size: 0.78rem;
+            color: #64748b;
+            line-height: 1.5;
+        }
+
+        .dpad {
+            --key: 52px;
+            display: none;
+            grid-template-columns: repeat(3, var(--key));
+            grid-template-rows: repeat(3, var(--key));
+            gap: 4px;
+            justify-content: center;
+            margin-top: auto;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .dpad button {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            color: #e2e8f0;
+            font-size: 1.1rem;
+            cursor: pointer;
+        }
+
+        .dpad button:active { background: rgba(74, 222, 128, 0.25); }
+
+        @media (pointer: coarse), (max-width: 700px) {
+            .dpad { display: grid; }
+            .hint { display: none; }
+        }
+
+        /* 直式畫面：場地在上，側欄移到下方並排成兩欄。 */
+        @media (max-aspect-ratio: 1/1) {
+            .app {
+                grid-template-columns: minmax(0, 1fr);
+                grid-template-rows: minmax(0, 1fr) auto;
+                padding: 0.5rem;
+                gap: 0.5rem;
+            }
+            .panel { gap: 0.4rem; }
+            .seats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .dpad { margin-top: 0; }
+        }
+
+        /* 高度不足時收掉次要資訊，確保內容不會超出視窗。 */
+        @media (max-height: 560px) and (min-aspect-ratio: 1/1) {
+            .app { padding: 0.4rem; gap: 0.4rem; }
+            .panel { gap: 0.3rem; }
+            h1, .hint { display: none; }
+            .online, .record { font-size: 0.72rem; }
+            .record { padding: 0.15rem 0.4rem; }
+            .seats { gap: 0.15rem; }
+            .seat { padding: 0.05rem 0.4rem; font-size: 0.72rem; }
+            .btn-secondary { padding: 0.1rem 0.5rem; font-size: 0.72rem; }
+            .dpad { --key: 38px; gap: 2px; }
+            .overlay { gap: 0.3rem; }
+            .overlay h2 { font-size: 1.1rem; }
+            .overlay p { font-size: 0.8rem; }
+            .name-input, .btn { padding: 0.3rem 1rem; font-size: 0.85rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <main class="stage" id="stage">
+            <canvas id="game"></canvas>
+            <form class="overlay" id="overlay">
+                <h2 id="overlayTitle">連線中…</h2>
+                <p id="overlayMsg"></p>
+                <input class="name-input" id="nameInput" maxlength="12" placeholder="輸入暱稱" autocomplete="off" hidden>
+                <button class="btn" id="actionBtn" hidden></button>
+            </form>
+        </main>
+
+        <aside class="panel">
+            <div>
+                <h1>🐍 貪吃蛇連線版</h1>
+                <p class="online" id="online">線上 0 人</p>
+            </div>
+            <ol class="seats" id="seats"></ol>
+            <div class="record" id="record">最高分 0</div>
+            <button class="btn-secondary" id="leaveBtn" hidden>離開房間</button>
+            <p class="hint">方向鍵 或 WASD 控制方向<br>空白鍵 陣亡後重新開始<br>撞牆、撞到自己或別的蛇都會陣亡<br>房主關閉網頁時會自動換房主並重新開局</p>
+            <div class="dpad" id="dpad">
+                <span></span>
+                <button type="button" data-dir="up" aria-label="上">▲</button>
+                <span></span>
+                <button type="button" data-dir="left" aria-label="左">◀</button>
+                <span></span>
+                <button type="button" data-dir="right" aria-label="右">▶</button>
+                <span></span>
+                <button type="button" data-dir="down" aria-label="下">▼</button>
+                <span></span>
+            </div>
+        </aside>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"
+            integrity="sha384-nlUQ8ZqCbvStErob+biJNzSgltf6urV3VGqhfIfzhmg9RXmpeRm76ELw0pYnKlTR"
+            crossorigin="anonymous"></script>
+    <script>
+        const COLORS = ['#4ade80', '#60a5fa', '#facc15', '#f472b6', '#a78bfa', '#fb923c'];
+        const NAME_KEY = 'snakeOnlineName';
+
+        // ===== 遊戲規則：只在房主的瀏覽器上執行 =====
+        const COLS = 64;
+        const ROWS = 36;
+        const MAX_PLAYERS = 6;
+        const TICK_MS = 140;
+        const POINTS_PER_FOOD = 10;
+        const BASE_FOOD = 3;
+        const FOOD_PER_PLAYER = 2;
+        const MAX_FOOD = 60;
+        const START_LENGTH = 3;
+        const NAME_MAX_LENGTH = 12;
+
+        const DIRECTIONS = {
+            up: [0, -1],
+            down: [0, 1],
+            left: [-1, 0],
+            right: [1, 0],
+        };
+
+        // 格子以單一整數表示：cell = y * COLS + x
+        const toCell = (x, y) => y * COLS + x;
+        const cellX = (c) => c % COLS;
+        const cellY = (c) => Math.floor(c / COLS);
+
+        function cleanName(rawName) {
+            if (typeof rawName !== 'string') return '';
+            return Array.from(rawName.replace(/\p{Cc}/gu, '').trim()).slice(0, NAME_MAX_LENGTH).join('');
+        }
+
+        class Game {
+            constructor() {
+                this.players = new Map(); // seat -> player
+                this.food = new Set();
+                this.record = { name: '', score: 0 };
+                this.refillFood();
+            }
+
+            randomInt(min, max) {
+                return min + Math.floor(Math.random() * (max - min + 1));
+            }
+
+            addPlayer(rawName) {
+                if (this.players.size >= MAX_PLAYERS) return null;
+                let seat = 0;
+                while (this.players.has(seat)) seat++;
+                const player = {
+                    id: seat,
+                    name: cleanName(rawName) || `玩家${seat + 1}`,
+                    score: 0,
+                    best: 0,
+                    body: null,
+                    dir: DIRECTIONS.right,
+                    queue: [],
+                };
+                this.players.set(seat, player);
+                return player;
+            }
+
+            removePlayer(player) {
+                this.players.delete(player.id);
+            }
+
+            occupiedCells() {
+                const occupied = new Set();
+                for (const player of this.players.values()) {
+                    if (player.body) player.body.forEach((c) => occupied.add(c));
+                }
+                return occupied;
+            }
+
+            // 找一塊周圍淨空的位置出生；場地擁擠時逐步放寬距離，真的沒位置才回傳 false。
+            spawn(player) {
+                if (player.body) return true;
+                const occupied = this.occupiedCells();
+                const isClear = (x, y, radius) => {
+                    for (let dy = -radius; dy <= radius; dy++) {
+                        for (let dx = -radius; dx <= radius; dx++) {
+                            const nx = x + dx;
+                            const ny = y + dy;
+                            if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
+                            if (occupied.has(toCell(nx, ny))) return false;
+                        }
+                    }
+                    return true;
+                };
+
+                for (const radius of [6, 4, 2]) {
+                    for (let attempt = 0; attempt < 200; attempt++) {
+                        const x = this.randomInt(8, COLS - 9);
+                        const y = this.randomInt(4, ROWS - 5);
+                        if (!isClear(x, y, radius)) continue;
+
+                        const dir = x < COLS / 2 ? DIRECTIONS.right : DIRECTIONS.left;
+                        player.body = [];
+                        for (let i = 0; i < START_LENGTH; i++) {
+                            const c = toCell(x - dir[0] * i, y);
+                            player.body.push(c);
+                            this.food.delete(c);
+                        }
+                        player.dir = dir;
+                        player.queue = [];
+                        player.score = 0;
+                        this.refillFood();
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            // 最多預存兩次轉向，快速連按也不會掉指令；不允許直接回頭。
+            turn(player, dirName) {
+                if (!player.body || !Object.hasOwn(DIRECTIONS, dirName)) return;
+                const dir = DIRECTIONS[dirName];
+                const last = player.queue.at(-1) ?? player.dir;
+                const isReverse = dir[0] === -last[0] && dir[1] === -last[1];
+                if (dir === last || isReverse || player.queue.length >= 2) return;
+                player.queue.push(dir);
+            }
+
+            addScore(player) {
+                player.score += POINTS_PER_FOOD;
+                player.best = Math.max(player.best, player.score);
+                if (player.score > this.record.score) {
+                    this.record = { name: player.name, score: player.score };
+                }
+            }
+
+            tick() {
+                const alive = [...this.players.values()].filter((player) => player.body);
+                const dead = new Set();
+
+                // 先讓所有蛇同時前進，再統一判定碰撞，結果才不受玩家順序影響。
+                for (const player of alive) {
+                    if (player.queue.length) player.dir = player.queue.shift();
+                    const x = cellX(player.body[0]) + player.dir[0];
+                    const y = cellY(player.body[0]) + player.dir[1];
+                    if (x < 0 || x >= COLS || y < 0 || y >= ROWS) {
+                        dead.add(player);
+                        continue;
+                    }
+                    const head = toCell(x, y);
+                    player.body.unshift(head);
+                    if (this.food.delete(head)) this.addScore(player);
+                    else player.body.pop();
+                }
+
+                const counts = new Map();
+                for (const player of alive) {
+                    for (const c of player.body) counts.set(c, (counts.get(c) || 0) + 1);
+                }
+                for (const player of alive) {
+                    if (counts.get(player.body[0]) > 1) dead.add(player);
+                }
+
+                // 陣亡的蛇每隔一節變成食物。
+                const dropped = [];
+                for (const player of dead) {
+                    player.body.forEach((c, i) => {
+                        if (i % 2 === 0) dropped.push(c);
+                    });
+                    player.body = null;
+                    player.queue = [];
+                }
+                const occupied = this.occupiedCells();
+                for (const c of dropped) {
+                    if (this.food.size < MAX_FOOD && !occupied.has(c)) this.food.add(c);
+                }
+
+                this.refillFood();
+            }
+
+            refillFood() {
+                const target = Math.min(MAX_FOOD, BASE_FOOD + this.players.size * FOOD_PER_PLAYER);
+                const occupied = this.occupiedCells();
+                for (let attempt = 0; attempt < 500 && this.food.size < target; attempt++) {
+                    const c = toCell(this.randomInt(0, COLS - 1), this.randomInt(0, ROWS - 1));
+                    if (!occupied.has(c)) this.food.add(c);
+                }
+            }
+
+            snapshot() {
+                return {
+                    t: 'state',
+                    players: [...this.players.values()].map(({ id, name, score, best, body }) => ({
+                        id, name, score, best, body,
+                    })),
+                    food: [...this.food],
+                    record: this.record,
+                };
+            }
+        }
+        // ===== 遊戲規則結束 =====
+
+        // 所有人用同一個 ID 搶房主：搶到的當房主，其他人連線到房主。網址加 ?room=xxx 可開私人房。
+        const ROOM = new URLSearchParams(location.search).get('room')?.replace(/[^a-zA-Z0-9]/g, '').slice(0, 32) || 'main';
+        const HOST_ID = `bomy321-ai-meeting-snake-${ROOM}`;
+        const MAX_CONNECTIONS = 12;     // 玩家加觀戰者；所有資料都由房主上傳，不宜太多
+        const PING_MS = 3000;
+        const CLIENT_TIMEOUT_MS = 12000; // 房主多久沒收到某連線的訊息就釋出座位
+        const HOST_TIMEOUT_MS = 5000;    // 玩家多久沒收到畫面就重新找房
+        const CONNECT_TIMEOUT_MS = 15000;
+        const MAX_BUFFERED_BYTES = 64 * 1024;
+        // 背景分頁的計時器會被瀏覽器降速，Worker 不受影響，房主切換分頁時遊戲才不會變慢。
+        const TICK_WORKER_URL = URL.createObjectURL(new Blob(
+            [`setInterval(() => postMessage(0), ${TICK_MS});`],
+            { type: 'text/javascript' },
+        ));
+
+        const stage = document.getElementById('stage');
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('overlay');
+        const overlayTitle = document.getElementById('overlayTitle');
+        const overlayMsg = document.getElementById('overlayMsg');
+        const nameInput = document.getElementById('nameInput');
+        const actionBtn = document.getElementById('actionBtn');
+        const leaveBtn = document.getElementById('leaveBtn');
+        const seatsEl = document.getElementById('seats');
+        const onlineEl = document.getElementById('online');
+        const recordEl = document.getElementById('record');
+
+        let peer = null;
+        let hostConn = null;    // 玩家端：連到房主的連線
+        let isHost = false;
+        let hostGame = null;    // 房主端：遊戲狀態
+        let localClient = null; // 房主端：房主自己也算一個連線
+        const clients = new Set();
+        let tickWorker = null;
+        let hostTimer = null;
+        let clientTimer = null;
+        let retryTimer = null;
+        let statusMsg = '正在尋找房間…';
+        let connected = false;
+        let cols = 0;
+        let rows = 0;
+        let maxPlayers = 0;
+        let cell = 0;
+        let myId = null;
+        let wantJoin = false;   // 斷線重連後是否自動重新加入
+        let note = '';          // 顯示在遮罩上的額外提示
+        let world = { players: [], food: [], record: { name: '', score: 0 } };
+
+        function loadName() {
+            try {
+                return localStorage.getItem(NAME_KEY) || '';
+            } catch {
+                return '';
+            }
+        }
+
+        function saveName(name) {
+            try {
+                localStorage.setItem(NAME_KEY, name);
+            } catch {
+                // 瀏覽器不允許儲存時，下次重新輸入暱稱即可。
+            }
+        }
+
+        nameInput.value = loadName();
+
+        function send(message) {
+            if (isHost) {
+                if (localClient) handleClientMessage(localClient, message);
+            } else if (hostConn && hostConn.open) {
+                hostConn.send(message);
+            }
+        }
+
+        function receive(msg) {
+            switch (msg.t) {
+                case 'hello':
+                    cols = msg.cols;
+                    rows = msg.rows;
+                    maxPlayers = msg.maxPlayers;
+                    buildSeats();
+                    resize();
+                    if (wantJoin) send({ t: 'join', name: nameInput.value });
+                    break;
+                case 'joined':
+                    myId = msg.id;
+                    note = '';
+                    break;
+                case 'full':
+                    wantJoin = false;
+                    note = '房間已滿，請等有人離開後再加入。';
+                    break;
+                case 'spawnFail':
+                    note = '場地太擠了，請稍後再試一次。';
+                    break;
+                case 'state':
+                    world = msg;
+                    render();
+                    updatePanel();
+                    break;
+            }
+            updateOverlay();
+        }
+
+        // ===== 房主端 =====
+        function handleClientMessage(client, msg) {
+            if (!msg || typeof msg !== 'object' || !hostGame) return;
+            switch (msg.t) {
+                case 'join': {
+                    if (client.player) return;
+                    const player = hostGame.addPlayer(msg.name);
+                    if (!player) {
+                        client.deliver({ t: 'full' });
+                        return;
+                    }
+                    client.player = player;
+                    client.deliver({ t: 'joined', id: player.id, name: player.name });
+                    if (!hostGame.spawn(player)) client.deliver({ t: 'spawnFail' });
+                    break;
+                }
+                case 'spawn':
+                    if (client.player && !hostGame.spawn(client.player)) client.deliver({ t: 'spawnFail' });
+                    break;
+                case 'turn':
+                    if (client.player) hostGame.turn(client.player, msg.dir);
+                    break;
+                case 'leave':
+                    if (client.player) {
+                        hostGame.removePlayer(client.player);
+                        client.player = null;
+                    }
+                    break;
+            }
+        }
+
+        function greet(client) {
+            client.deliver({ t: 'hello', cols: COLS, rows: ROWS, maxPlayers: MAX_PLAYERS });
+            client.deliver(hostGame.snapshot());
+        }
+
+        function dropClient(client) {
+            if (!clients.delete(client)) return;
+            if (client.player && hostGame) hostGame.removePlayer(client.player);
+            client.player = null;
+        }
+
+        function acceptClient(conn) {
+            const client = {
+                player: null,
+                conn,
+                lastSeen: Date.now(),
+                deliver(message) {
+                    if (conn.open) conn.send(message);
+                },
+            };
+            conn.on('open', () => {
+                if (!isHost || clients.size >= MAX_CONNECTIONS) {
+                    conn.close();
+                    return;
+                }
+                client.lastSeen = Date.now();
+                clients.add(client);
+                greet(client);
+            });
+            conn.on('data', (data) => {
+                client.lastSeen = Date.now();
+                if (clients.has(client)) handleClientMessage(client, data);
+            });
+            conn.on('close', () => dropClient(client));
+            conn.on('error', () => dropClient(client));
+        }
+
+        function hostTick() {
+            hostGame.tick();
+            const state = hostGame.snapshot();
+            for (const client of clients) {
+                // 網路跟不上的玩家跳過這一格；下一格是完整畫面，不會有缺漏。
+                if ((client.conn?.dataChannel?.bufferedAmount || 0) < MAX_BUFFERED_BYTES) client.deliver(state);
+            }
+        }
+
+        function hostMaintenance() {
+            const now = Date.now();
+            for (const client of clients) {
+                if (client.conn && now - client.lastSeen > CLIENT_TIMEOUT_MS) {
+                    client.conn.close();
+                    dropClient(client);
+                }
+            }
+            // 與配對服務斷線時，遊戲仍可繼續，但新玩家進不來，所以要持續重連。
+            if (peer && peer.disconnected && !peer.destroyed) peer.reconnect();
+        }
+
+        function startHosting() {
+            isHost = true;
+            connected = true;
+            hostGame = new Game();
+            localClient = { player: null, conn: null, deliver: receive };
+            clients.add(localClient);
+            tickWorker = new Worker(TICK_WORKER_URL);
+            tickWorker.onmessage = hostTick;
+            hostTimer = setInterval(hostMaintenance, PING_MS);
+            greet(localClient);
+        }
+
+        // ===== 玩家端 =====
+        function connectToHost() {
+            const candidate = new Peer();
+            peer = candidate;
+            const startedAt = Date.now();
+            let lastHeard = 0;
+
+            candidate.on('open', () => {
+                if (peer !== candidate) return;
+                const conn = candidate.connect(HOST_ID, { reliable: true, serialization: 'json' });
+                hostConn = conn;
+                conn.on('open', () => {
+                    if (peer !== candidate) return;
+                    connected = true;
+                    lastHeard = Date.now();
+                    updateOverlay();
+                });
+                conn.on('data', (data) => {
+                    if (peer !== candidate || !data || typeof data !== 'object') return;
+                    lastHeard = Date.now();
+                    receive(data);
+                });
+                conn.on('close', () => {
+                    if (peer === candidate) restart();
+                });
+                conn.on('error', () => {
+                    if (peer === candidate) restart();
+                });
+            });
+
+            // peer-unavailable 代表房主已離開，回頭搶房主；其他錯誤同樣重新找房。
+            candidate.on('error', (err) => {
+                if (peer !== candidate) return;
+                restart(err.type === 'peer-unavailable' ? '' : '無法連到配對服務，正在重試…');
+            });
+
+            clientTimer = setInterval(() => {
+                if (peer !== candidate) return;
+                if (connected) {
+                    if (Date.now() - lastHeard > HOST_TIMEOUT_MS) restart();
+                    else send({ t: 'ping' });
+                } else if (Date.now() - startedAt > CONNECT_TIMEOUT_MS) {
+                    restart('連不上房主，可能是網路阻擋了點對點連線，正在重試…');
+                }
+            }, PING_MS);
+        }
+
+        // ===== 找房與重連 =====
+        function findRoom() {
+            if (typeof Peer === 'undefined') {
+                overlayTitle.textContent = '無法載入連線元件';
+                overlayMsg.textContent = '請檢查網路後重新整理頁面。';
+                return;
+            }
+            const candidate = new Peer(HOST_ID);
+            peer = candidate;
+
+            candidate.on('open', () => {
+                if (peer !== candidate || isHost) return; // 房主重連配對服務時也會觸發 open
+                startHosting();
+            });
+            candidate.on('connection', (conn) => {
+                if (peer === candidate && isHost) acceptClient(conn);
+                else conn.close();
+            });
+            candidate.on('error', (err) => {
+                if (peer !== candidate) return;
+                if (err.type === 'unavailable-id') {
+                    if (isHost) {
+                        // 斷線期間已有別人當房主，併回對方的房間。
+                        restart();
+                    } else {
+                        candidate.destroy();
+                        connectToHost();
+                    }
+                } else if (!isHost) {
+                    restart('無法連到配對服務，正在重試…');
+                }
+                // 房主的其他錯誤由 hostMaintenance 持續重連處理，遊戲不中斷。
+            });
+        }
+
+        function teardown() {
+            clearTimeout(retryTimer);
+            clearInterval(hostTimer);
+            clearInterval(clientTimer);
+            if (tickWorker) tickWorker.terminate();
+            tickWorker = null;
+            const oldPeer = peer;
+            peer = null;
+            hostConn = null;
+            isHost = false;
+            hostGame = null;
+            localClient = null;
+            clients.clear();
+            connected = false;
+            if (oldPeer) oldPeer.destroy();
+        }
+
+        // 隨機延遲可避免房主離開時所有人同時搶房主。
+        function restart(message = '') {
+            teardown();
+            statusMsg = message || '正在尋找房間…';
+            myId = null;
+            world = { players: [], food: [], record: { name: '', score: 0 } };
+            render();
+            updatePanel();
+            updateOverlay();
+            retryTimer = setTimeout(findRoom, 500 + Math.random() * 2000);
+        }
+
+        function me() {
+            return world.players.find((player) => player.id === myId);
+        }
+
+        function updateOverlay() {
+            const player = me();
+            const isFull = maxPlayers > 0 && world.players.length >= maxPlayers;
+            let title = '';
+            let message = note;
+            let action = '';
+
+            if (!connected) {
+                title = '連線中…';
+                message = statusMsg;
+            } else if (myId === null) {
+                title = wantJoin ? '加入中…' : '貪吃蛇連線版';
+                message = note || `目前 ${world.players.length} / ${maxPlayers} 人上線`;
+                action = wantJoin ? '' : '加入遊戲';
+            } else if (player && player.body) {
+                overlay.classList.add('hidden');
+                leaveBtn.hidden = false;
+                if (document.activeElement && document.activeElement !== document.body) {
+                    document.activeElement.blur();
+                }
+                return;
+            } else if (player) {
+                title = '遊戲結束';
+                message = [`最終分數：${player.score}　個人最佳：${player.best}`, note].filter(Boolean).join('\n');
+                action = '再玩一次';
+            } else {
+                title = '加入中…';
+            }
+
+            overlayTitle.textContent = title;
+            overlayMsg.textContent = message;
+            nameInput.hidden = myId !== null || !connected || wantJoin;
+            actionBtn.hidden = !action;
+            actionBtn.textContent = action;
+            actionBtn.disabled = myId === null && isFull;
+            leaveBtn.hidden = myId === null;
+            overlay.classList.remove('hidden');
+        }
+
+        function submitAction() {
+            if (myId === null) {
+                if (!connected || wantJoin) return;
+                const name = nameInput.value.trim();
+                saveName(name);
+                wantJoin = true;
+                note = '';
+                send({ t: 'join', name });
+            } else {
+                note = '';
+                send({ t: 'spawn' });
+            }
+            updateOverlay();
+        }
+
+        function leaveRoom() {
+            send({ t: 'leave' });
+            myId = null;
+            wantJoin = false;
+            note = '';
+            updateOverlay();
+        }
+
+        function buildSeats() {
+            seatsEl.replaceChildren();
+            for (let id = 0; id < maxPlayers; id++) {
+                const seat = document.createElement('li');
+                seat.className = 'seat empty';
+
+                const swatch = document.createElement('span');
+                swatch.className = 'swatch';
+                swatch.style.background = COLORS[id];
+
+                const name = document.createElement('span');
+                name.className = 'seat-name';
+                name.textContent = '空位';
+
+                const score = document.createElement('span');
+                score.className = 'seat-score';
+
+                seat.append(swatch, name, score);
+                seatsEl.append(seat);
+            }
+        }
+
+        function updatePanel() {
+            onlineEl.textContent = `線上 ${world.players.length} / ${maxPlayers} 人${isHost ? '　你是房主' : ''}`;
+            const { record } = world;
+            recordEl.textContent = '最高分 ';
+            const strong = document.createElement('strong');
+            strong.textContent = record.score;
+            recordEl.append(strong, record.name ? `　${record.name}` : '');
+
+            [...seatsEl.children].forEach((seat, id) => {
+                const player = world.players.find((candidate) => candidate.id === id);
+                const [, name, score] = seat.children;
+                seat.classList.toggle('empty', !player);
+                seat.classList.toggle('me', id === myId);
+                seat.classList.toggle('dead', !!player && !player.body);
+                name.textContent = player ? player.name + (id === myId ? '（你）' : '') : '空位';
+                score.textContent = player ? player.score : '';
+            });
+        }
+
+        // 依舞台大小換算每格像素，並對齊裝置像素，讓場地在任何視窗都完整顯示且線條清晰。
+        function resize() {
+            if (!cols) return;
+            const dpr = window.devicePixelRatio || 1;
+            const bounds = stage.getBoundingClientRect();
+            cell = Math.max(1, Math.floor(Math.min(bounds.width / cols, bounds.height / rows) * dpr));
+            canvas.width = cell * cols;
+            canvas.height = cell * rows;
+            canvas.style.width = `${canvas.width / dpr}px`;
+            canvas.style.height = `${canvas.height / dpr}px`;
+            render();
+        }
+
+        function drawGrid() {
+            ctx.fillStyle = '#0a0f1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let x = 0; x <= cols; x++) {
+                ctx.moveTo(x * cell + 0.5, 0);
+                ctx.lineTo(x * cell + 0.5, canvas.height);
+            }
+            for (let y = 0; y <= rows; y++) {
+                ctx.moveTo(0, y * cell + 0.5);
+                ctx.lineTo(canvas.width, y * cell + 0.5);
+            }
+            ctx.stroke();
+        }
+
+        function drawFood() {
+            const radius = cell * 0.38;
+            ctx.shadowColor = '#f87171';
+            ctx.shadowBlur = cell * 0.6;
+            ctx.fillStyle = '#f87171';
+            for (const c of world.food) {
+                ctx.beginPath();
+                ctx.arc((c % cols + 0.5) * cell, (Math.floor(c / cols) + 0.5) * cell, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.shadowBlur = 0;
+        }
+
+        function drawSnake(player) {
+            const color = COLORS[player.id];
+            const body = player.body;
+
+            for (let i = body.length - 1; i >= 0; i--) {
+                const pad = i === 0 ? cell * 0.04 : cell * 0.1;
+                const size = cell - pad * 2;
+                const x = (body[i] % cols) * cell + pad;
+                const y = Math.floor(body[i] / cols) * cell + pad;
+
+                ctx.fillStyle = color;
+                ctx.globalAlpha = i === 0 ? 1 : 1 - (i / body.length) * 0.5;
+                ctx.beginPath();
+                ctx.roundRect(x, y, size, size, cell * (i === 0 ? 0.3 : 0.2));
+                ctx.fill();
+                ctx.globalAlpha = 1;
+
+                if (i === 0 && player.id === myId) {
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = Math.max(1, cell * 0.12);
+                    ctx.stroke();
+                }
+            }
+            drawEyes(body);
+        }
+
+        function drawEyes(body) {
+            const headX = body[0] % cols;
+            const headY = Math.floor(body[0] / cols);
+            const dx = headX - body[1] % cols;
+            const dy = headY - Math.floor(body[1] / cols);
+            const cx = (headX + 0.5 + dx * 0.18) * cell;
+            const cy = (headY + 0.5 + dy * 0.18) * cell;
+
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            for (const side of [-1, 1]) {
+                const ex = cx + dy * side * cell * 0.22;
+                const ey = cy + dx * side * cell * 0.22;
+                ctx.moveTo(ex, ey);
+                ctx.arc(ex, ey, cell * 0.12, 0, Math.PI * 2);
+            }
+            ctx.fill();
+        }
+
+        function drawLabel(player) {
+            const dpr = window.devicePixelRatio || 1;
+            const fontSize = Math.max(11 * dpr, cell * 0.65);
+            const headX = (player.body[0] % cols + 0.5) * cell;
+            const headY = Math.floor(player.body[0] / cols) * cell;
+
+            ctx.font = `700 ${fontSize}px 'Noto Sans TC', sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            const half = ctx.measureText(player.name).width / 2;
+            const x = Math.min(Math.max(headX, half + 2), canvas.width - half - 2);
+            const y = headY - cell * 0.2 < fontSize ? headY + cell + fontSize + cell * 0.2 : headY - cell * 0.2;
+
+            ctx.lineWidth = fontSize * 0.25;
+            ctx.strokeStyle = '#0a0f1a';
+            ctx.strokeText(player.name, x, y);
+            ctx.fillStyle = COLORS[player.id];
+            ctx.fillText(player.name, x, y);
+        }
+
+        function render() {
+            if (!cols || !cell) return;
+            const alive = world.players.filter((player) => player.body);
+            drawGrid();
+            drawFood();
+            alive.forEach(drawSnake);
+            alive.forEach(drawLabel);
+        }
+
+        const KEY_DIRECTIONS = {
+            arrowup: 'up', w: 'up',
+            arrowdown: 'down', s: 'down',
+            arrowleft: 'left', a: 'left',
+            arrowright: 'right', d: 'right',
+        };
+
+        document.addEventListener('keydown', (e) => {
+            if (e.target === nameInput) return;
+            const key = e.key.toLowerCase();
+            if (Object.hasOwn(KEY_DIRECTIONS, key)) {
+                e.preventDefault();
+                send({ t: 'turn', dir: KEY_DIRECTIONS[key] });
+            } else if (e.key === ' ') {
+                e.preventDefault();
+                const player = me();
+                if (player && !player.body) submitAction();
+            }
+        });
+
+        overlay.addEventListener('submit', (e) => {
+            e.preventDefault();
+            submitAction();
+        });
+
+        leaveBtn.addEventListener('click', leaveRoom);
+
+        document.getElementById('dpad').addEventListener('pointerdown', (e) => {
+            const dir = e.target.dataset.dir;
+            if (dir) {
+                e.preventDefault();
+                send({ t: 'turn', dir });
+            }
+        });
+
+        new ResizeObserver(resize).observe(stage);
+
+        // 關閉分頁時立刻釋出房主 ID，其他玩家才能馬上接手。
+        window.addEventListener('pagehide', teardown);
+
+        updateOverlay();
+        findRoom();
+    </script>
+</body>
+</html>
